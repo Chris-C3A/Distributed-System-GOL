@@ -21,15 +21,16 @@ const DEAD byte = 0
 var EvolveGoL = "ControllerOperations.Evolve"
 
 type Response struct {
-	Message string
+	Message Params
 }
 
 type Request struct {
-	Message string
+	Message Params
 }
 
 // distributor divides the work between workers and interacts with other goroutines.
 func distributor(p Params, c distributorChannels) {
+	handleConnections(p)
 
 	// TODO: Create a 2D slice to store the world.
 
@@ -49,14 +50,13 @@ func distributor(p Params, c distributorChannels) {
 	close(c.events)
 }
 
-func handleConnections() {
+func handleConnections(p Params) {
 	server := flag.String("server", "127.0.0.1:8030", "IP:port string to connect to as server")
 	flag.Parse()
 	fmt.Println("Server: ", *server)
 	client, _ := rpc.Dial("tcp", *server)
 	defer client.Close()
-	request := Request{Message: "Hello"}
+	request := Request{Message: p}
 	response := new(Response)
 	client.Call(EvolveGoL, request, response)
-	fmt.Println("Responded: " + response.Message)
 }

@@ -9,41 +9,27 @@ import (
 	"uk.ac.bris.cs/gameoflife/util"
 )
 
-type distributorChannels struct {
-	events     chan<- Event
-	ioCommand  chan<- ioCommand
-	ioIdle     <-chan bool
-	ioFilename chan<- string
-	ioOutput   chan<- uint8
-	ioInput    <-chan uint8
-}
-
 const ALIVE byte = 255
 const DEAD byte = 0
 
-func (s *ControllerOperations) EvolveGoL(req Request, res *Response) (err error) {
-	res.Message = s.EvolveGoL(req.Message, "omak")
+func (s *ControllerOperations) EvolveGoL(req Request, res *Response, p Params) (err error) {
+	res.Message = calculateNextState(p, req.Message)
 	return
 }
 
 type Response struct {
-	Message string
+	Message [][]byte
 }
 
 type Request struct {
-	Message string
+	Message [][]byte
 }
 
 type ControllerOperations struct{}
 
-// distributor divides the work between workers and interacts with other goroutines.
-func distributor(p Params, c distributorChannels) {
-
+func worker(p Params) {
+	handleConnections()
 	turn := 0
-
-	// Make sure that the Io has finished any output before exiting.
-	c.ioCommand <- ioCheckIdle
-	<-c.ioIdle
 
 	// initalize world
 	world := make([][]byte, p.ImageHeight)
@@ -51,41 +37,10 @@ func distributor(p Params, c distributorChannels) {
 		world[i] = make([]byte, p.ImageWidth)
 	}
 
-	// store image bytes into world
-	for y := 0; y < p.ImageHeight; y++ {
-		for x := 0; x < p.ImageWidth; x++ {
-			world[y][x] = <-c.ioInput
-		}
-	}
-
 	// TODO: Execute all turns of the Game of Life.
 	for ; turn < p.Turns; turn++ {
 		world = calculateNextState(p, world)
 	}
-
-	// TODO: Report the final state using FinalTurnCompleteEvent.
-
-	// put each byte of final wrold into output channel
-	for y := 0; y < p.ImageHeight; y++ {
-		for x := 0; x < p.ImageWidth; x++ {
-			c.ioOutput <- world[y][x]
-		}
-	}
-
-	// put ioOuput into command channel
-	c.ioCommand <- ioOutput
-
-	// finalturncompleteevent
-	c.events <- FinalTurnComplete{CompletedTurns: turn, Alive: calculateAliveCells(p, world)}
-
-	// Make sure that the Io has finished any output before exiting.
-	c.ioCommand <- ioCheckIdle
-	<-c.ioIdle
-
-	c.events <- StateChange{turn, Quitting}
-
-	// Close the channel to stop the SDL goroutine gracefully. Removing may cause deadlock.
-	close(c.events)
 }
 
 func getNumOfLiveNeighbours(world [][]byte, i int, j int) int {
