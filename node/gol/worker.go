@@ -2,45 +2,60 @@ package gol
 
 import (
 	"flag"
+	"fmt"
 	"math/rand"
 	"net"
 	"net/rpc"
 	"time"
+
 	"uk.ac.bris.cs/gameoflife/util"
 )
 
 const ALIVE byte = 255
 const DEAD byte = 0
 
-func (s *ControllerOperations) EvolveGoL(req Request, res *Response, p Params) (err error) {
-	res.Message = calculateNextState(p, req.Message)
-	return
-}
-
 type Response struct {
-	Message [][]byte
+	World [][]byte
+	AliveCells []util.Cell
+	// CompletedTurns int
 }
 
 type Request struct {
-	Message [][]byte
+	World [][]byte
+	Turns int
 }
+
 
 type ControllerOperations struct{}
 
-func worker(p Params) {
-	handleConnections()
-	turn := 0
+func (s *ControllerOperations) EvolveGoL(req Request, res *Response) (err error) {
+	res.World = worker(req.World, req.Turns)
+	res.AliveCells = calculateAliveCells(res.World)
+	fmt.Println("Omak")
+	return
+}
+
+
+func worker(world [][]uint8, turns int) [][]uint8 {
+	// handleConnections()
 
 	// initalize world
-	world := make([][]byte, p.ImageHeight)
-	for i := range world {
-		world[i] = make([]byte, p.ImageWidth)
-	}
+	// var world [][]uint8
+
+	// receive world from controller
+
+	// world := make([][]byte, p.ImageHeight)
+	// for i := range world {
+	// 	world[i] = make([]byte, p.ImageWidth)
+	// }
 
 	// TODO: Execute all turns of the Game of Life.
-	for ; turn < p.Turns; turn++ {
-		world = calculateNextState(p, world)
+	turn := 0
+	for ; turn < turns; turn++ {
+		world = calculateNextState(world)
 	}
+
+	return world
 }
 
 func getNumOfLiveNeighbours(world [][]byte, i int, j int) int {
@@ -64,11 +79,11 @@ func getNumOfLiveNeighbours(world [][]byte, i int, j int) int {
 
 }
 
-func calculateNextState(p Params, world [][]byte) [][]byte {
-	newWorld := make([][]byte, p.ImageHeight)
+func calculateNextState(world [][]byte) [][]byte {
+	newWorld := make([][]byte, len(world))
 
 	for i := 0; i < len(newWorld); i++ {
-		newWorld[i] = make([]byte, p.ImageWidth)
+		newWorld[i] = make([]byte, len(world[i]))
 	}
 
 	for i := 0; i < len(newWorld); i++ {
@@ -95,7 +110,7 @@ func calculateNextState(p Params, world [][]byte) [][]byte {
 
 }
 
-func calculateAliveCells(p Params, world [][]byte) []util.Cell {
+func calculateAliveCells(world [][]byte) []util.Cell {
 	var aliveCells []util.Cell
 
 	for y := 0; y < len(world); y++ {
