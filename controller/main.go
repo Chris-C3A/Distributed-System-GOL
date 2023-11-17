@@ -43,6 +43,7 @@ func main() {
 		false,
 		"Disables the SDL window, so there is no visualisation during the tests.")
 
+
 	flag.Parse()
 
 	fmt.Println("Threads:", params.Threads)
@@ -66,3 +67,4 @@ func main() {
 		}
 	}
 }
+

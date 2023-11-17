@@ -10,6 +10,7 @@ import (
 func main() {
 	runtime.LockOSThread()
 
+	// do server stuff here maybe?
 	gol.Run()
 
 	// open rpc server on certain port...
