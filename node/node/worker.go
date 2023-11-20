@@ -1,14 +1,16 @@
-package gol
+package node
 
 import (
+	"fmt"
 	"sync"
 
-	"uk.ac.bris.cs/gameoflife/util"
+	"uk.ac.bris.cs/node/util"
 )
 
 const ALIVE byte = 255
 const DEAD byte = 0
 
+// TODO put in stubs
 type Response struct {
 	World [][]byte
 	AliveCells []util.Cell
@@ -19,9 +21,12 @@ type Response struct {
 type Request struct {
 	World [][]byte
 	Turns int
+	StartY int
+	EndY int
+	Workers []string
 }
 
-type ControllerOperations struct{}
+type WorkerOperations struct{}
 
 // global variables
 var world [][]uint8
@@ -31,22 +36,25 @@ var terminate = false
 
 // RPC methods
 
-func (s *ControllerOperations) EvolveGoL(req Request, res *Response) (err error) {
+func (s *WorkerOperations) EvolveGoL(req Request, res *Response) (err error) {
+	fmt.Println("evolving gol called by broker")
 	// reset globally values when evolveGoL is called
 	turn = 0
 	// assign request world globally
 	world = req.World
 
-	worker(req.Turns)
+	worker(req.Turns, req.StartY, req.EndY)
 
 	res.World = world
 
 	res.AliveCells = calculateAliveCells()
 
+	fmt.Println("sending result to broker")
+
 	return
 }
 
-func (s *ControllerOperations) RequestAliveCellsCount(req Request, res *Response) (err error) {
+func (s *WorkerOperations) RequestAliveCellsCount(req Request, res *Response) (err error) {
 	mutex.Lock()
 	res.AliveCellsCount = len(calculateAliveCells())
 	res.CompletedTurns = turn
@@ -55,7 +63,7 @@ func (s *ControllerOperations) RequestAliveCellsCount(req Request, res *Response
 	return
 }
 
-func (s *ControllerOperations) RequestCurrentGameState(req Request, res *Response) (err error) {
+func (s *WorkerOperations) RequestCurrentGameState(req Request, res *Response) (err error) {
 	mutex.Lock()
 	res.World = world
 	res.CompletedTurns = turn
@@ -64,7 +72,7 @@ func (s *ControllerOperations) RequestCurrentGameState(req Request, res *Respons
 	return
 }
 
-func (s *ControllerOperations) Shutdown(req Request, res *Response) (err error) {
+func (s *WorkerOperations) Shutdown(req Request, res *Response) (err error) {
 	terminate = true
 
 	server.Stop()
@@ -73,14 +81,17 @@ func (s *ControllerOperations) Shutdown(req Request, res *Response) (err error) 
 }
 
 
-func worker(turns int) {
+func worker(turns int, startY, endY int) {
 	for turn < turns && !terminate {
 		mutex.Lock()
-		world = calculateNextState()
+		// TODO continue from here
+		world = calculateNextState(startY, endY)
 		turn++
 		mutex.Unlock()
 	}
 }
+
+// GOL Logic
 
 func getNumOfLiveNeighbours(i int, j int) int {
 	numOfLiveNeighbours := 0
@@ -103,31 +114,32 @@ func getNumOfLiveNeighbours(i int, j int) int {
 
 }
 
-func calculateNextState() [][]byte {
+func calculateNextState(startY, endY int) [][]byte {
 	// fmt.Println("world:", len(world), len(world[0]))
-	newWorld := make([][]byte, len(world))
+	height := endY - startY
+	width := len(world[0])
 
-	for i := 0; i < len(newWorld); i++ {
-		newWorld[i] = make([]byte, len(world[i]))
+	newWorld := make([][]byte, height)
+
+	for i := 0; i < height; i++ {
+		newWorld[i] = make([]byte, width)
 	}
 
-	// fmt.Println("newWorld:", len(newWorld), len(newWorld[0]))
-
-	for i := 0; i < len(newWorld); i++ {
-		for j := 0; j < len(newWorld[i]); j++ {
+	for i := startY; i < endY; i++ {
+		for j := 0; j < width; j++ {
 			// get number of live neighbours
 			numOfLiveNeighbours := getNumOfLiveNeighbours(i, j)
 
 			// rules of the game of life
 			if world[i][j] == ALIVE {
 				if numOfLiveNeighbours < 2 || numOfLiveNeighbours > 3 {
-					newWorld[i][j] = DEAD
+					newWorld[i-startY][j] = DEAD
 				} else {
-					newWorld[i][j] = ALIVE
+					newWorld[i-startY][j] = ALIVE
 				}
 			} else {
 				if numOfLiveNeighbours == 3 {
-					newWorld[i][j] = ALIVE
+					newWorld[i-startY][j] = ALIVE
 				}
 			}
 		}

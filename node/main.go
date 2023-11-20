@@ -1,17 +1,13 @@
 package main
 
-import (
-	"runtime"
+import "uk.ac.bris.cs/node/node"
 
-	"uk.ac.bris.cs/gameoflife/gol"
-)
 
-// main is the function called when starting Game of Life with 'go run .'
+var Test int = 1
+
 func main() {
-	runtime.LockOSThread()
 
-	// do server stuff here maybe?
-	gol.Run()
+	node.Run()
 
 	// open rpc server on certain port...
 

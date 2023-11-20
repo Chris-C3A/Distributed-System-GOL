@@ -4,6 +4,7 @@ import (
 	"flag"
 	"fmt"
 	"runtime"
+	"time"
 
 	"uk.ac.bris.cs/gameoflife/gol"
 	"uk.ac.bris.cs/gameoflife/sdl"
@@ -11,6 +12,9 @@ import (
 
 // main is the function called when starting Game of Life with 'go run .'
 func main() {
+		// Record the start time
+	startTime := time.Now()
+
 	runtime.LockOSThread()
 	var params gol.Params
 
@@ -66,5 +70,13 @@ func main() {
 			}
 		}
 	}
+
+	// Calculate the execution time using Since
+	executionTime := time.Since(startTime)
+
+	// Print the result
+	fmt.Printf("Turns: %d\n", params.Turns)
+	fmt.Printf("Workers: %d\n", params.Threads)
+	fmt.Printf("Execution Time: %s\n", executionTime)
 }
 
