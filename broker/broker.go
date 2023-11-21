@@ -73,23 +73,41 @@ func (s *ControllerOperations) EvolveGoL(req stubs.Request, res *stubs.Response)
 			workerResponses[i] = new(stubs.Response)
 			
 			var request stubs.Request
+
+			// partition world for worker + halos
+			var subworld [][]byte
+			var haloTop, haloBottom []byte
+
 			if i == len(workersClient) - 1 {
-				request = stubs.Request{World: world, StartY: startY, EndY: startY + dy + remainderY, Turns: 1}
+				subworld = world[startY:startY+dy+remainderY]
 			} else {
-				request = stubs.Request{World: world, StartY: startY, EndY: startY + dy, Turns: 1}
+				subworld = world[startY:startY+dy]
 			}
-			// request := stubs.Request{World: world, StartY: startY, EndY: startY + dy, Turns: 1}
+
+			// sepcial case for one worker
+			if i == 0 && i == len(workersClient) - 1 {
+				haloTop = world[len(world)-1]
+				haloBottom = world[0]
+			} else if i == 0 {
+				haloTop = world[len(world)-1]
+				haloBottom = world[startY+dy]
+			} else if i == len(workersClient) - 1 {
+				haloTop = world[startY-1]
+				haloBottom = world[0]
+			} else {
+				haloTop = world[startY-1]
+				haloBottom = world[startY+dy]
+			}
+
+			// add subworld + halo top and bottom rows
+			request = stubs.Request{World: subworld, HaloTop: haloTop, HaloBottom: haloBottom, Turns: 1}
 
 			workerCalls[i] = workerClient.Go(WorkerEvolveGoL, request, workerResponses[i], nil)
 
-
-			// response := sendToWorker(workerClient, stubs.Request{World: world, StartY: startY, EndY: startY + dy,  Turns: 1}, WorkerEvolveGoL)
-
-			// // add response 
-			// responses = append(responses, response)
-
 			startY += dy
 		}
+
+		// reconstruct world?
 
 		var newWorld [][]byte
 		// wait for calls to complete and reconstruct the world
@@ -106,17 +124,6 @@ func (s *ControllerOperations) EvolveGoL(req stubs.Request, res *stubs.Response)
 
 		turn++
 	}
-
-	// // break down world and send to each worker its part
-	// for _, workerClient := range workersClient {
-	// 	response := sendToWorker(workerClient, stubs.Request{World: req.World, Turns: 1}, WorkerEvolveGoL)
-	// 	responses = append(responses, response)
-	// }
-
-	// // TODO test assuming one response
-	// res.World = responses[0].World
-
-	// res.AliveCells = responses[0].AliveCells
 
 	// add final world to response
 	res.World = world
@@ -155,15 +162,6 @@ func (s *ControllerOperations) RequestAliveCellsCount(req stubs.Request, res *st
 // 	return
 // }
 
-
-// func worker(turns int) {
-// 	for turn < turns && !terminate {
-// 		mutex.Lock()
-// 		// world = calculateNextState()
-// 		turn++
-// 		mutex.Unlock()
-// 	}
-// }
 
 func sendToWorker(workerClient *rpc.Client, req stubs.Request, function string) *stubs.Response {
 
