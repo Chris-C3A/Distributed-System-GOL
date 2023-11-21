@@ -16,5 +16,5 @@ type Request struct {
 	Turns int
 	StartY int
 	EndY int
-	Workers []string
+	NumOfWorkers int
 }

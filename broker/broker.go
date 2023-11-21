@@ -45,6 +45,9 @@ func (s *ControllerOperations) EvolveGoL(req stubs.Request, res *stubs.Response)
 	turn = 0
 	world = req.World
 
+	//! not used atm
+	// numOfWorkers := req.NumOfWorkers
+
 
 	fmt.Println("received from controller")
 

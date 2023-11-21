@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"uk.ac.bris.cs/gameoflife/stubs"
+	"uk.ac.bris.cs/gameoflife/util"
 )
 
 type distributorChannels struct {
@@ -24,27 +25,16 @@ var RequestAliveCellsCount = "ControllerOperations.RequestAliveCellsCount"
 var RequestCurrentGameState = "ControllerOperations.RequestCurrentGameState"
 var Shutdown = "ControllerOperations.Shutdown"
 
-// func ticker(events chan<- Event) {
-// 	for {
-// 		// sleep for 2 seconds
-// 		time.Sleep(2 * time.Second)
-
-// 		// send rpc call
-// 		// fmt.Println("sending request alive cells")
-// 	}
-// }
 
 // distributor divides the work between workers and interacts with other goroutines.
 func distributor(p Params, c distributorChannels) {
 	// send input command
 	c.ioCommand <- ioInput
+	// send filename of pgm file to read
 	c.ioFilename <- fmt.Sprintf("%dx%d", p.ImageWidth, p.ImageHeight)
 
 	// initialise world
-	world := make([][]byte, p.ImageHeight)
-	for i := range world {
-		world[i] = make([]byte, p.ImageWidth)
-	}
+	world := util.MakeWorld(p.ImageWidth, p.ImageHeight)
 
 	// store image bytes into world
 	for y := 0; y < p.ImageHeight; y++ {
@@ -60,12 +50,12 @@ func distributor(p Params, c distributorChannels) {
 
 	// to render blank sdl window
 	c.events <- TurnComplete{CompletedTurns: 0}
+
 	// after every turn send the state of the board to run cellFlipped
 	// only send alive cells to run cellFlipped
 	// or some kind of that logic
 
-
-	// TODO return later
+	// initialise the 2 second ticker
 	ticker := time.NewTicker(2 * time.Second)
 	done := make(chan bool)
 
@@ -76,10 +66,12 @@ func distributor(p Params, c distributorChannels) {
 					case <-done:
 							return
 					case <-ticker.C:
+						// request alive cells from broker
 						res := sendToRPC(stubs.Request{}, RequestAliveCellsCount)
+
 						c.events <- AliveCellsCount{CompletedTurns: res.CompletedTurns, CellsCount: res.AliveCellsCount}
-					// TODO continue
 					case key := <-c.keyPresses:
+						// TODO continue
 						if key == 's' {
 							// get current state of the board then outputPGM file
 							response := sendToRPC(stubs.Request{}, RequestCurrentGameState)
@@ -106,14 +98,15 @@ func distributor(p Params, c distributorChannels) {
 	fmt.Println("sending to broker")
 
 	// send evolveGOL to broker to handle
-	response := sendToRPC(stubs.Request{World: world, Turns: p.Turns}, EvolveGoL)
+	// with number of workers to use
+	// if its more than the available workers it will use al the available ones
+	response := sendToRPC(stubs.Request{World: world, Turns: p.Turns, NumOfWorkers: p.Threads}, EvolveGoL)
+
 	fmt.Println("received response")
 
-	// TODO reutrn later
+	// stop ticker and send on done channel
 	ticker.Stop()
 	done <- true
-
-	fmt.Println("received response")
 
 	// FinalTurnComplete Event
 	c.events <- FinalTurnComplete{CompletedTurns: p.Turns, Alive: response.AliveCells}
@@ -132,6 +125,7 @@ func distributor(p Params, c distributorChannels) {
 	// output file
 	outFileName := fmt.Sprintf("%dx%dx%d", p.ImageWidth, p.ImageHeight, p.Turns)
 	fmt.Println(outFileName)
+
 	// send to channel
 	c.ioFilename <- outFileName
 
@@ -147,6 +141,7 @@ func distributor(p Params, c distributorChannels) {
 	close(c.events)
 }
 
+// helper functions
 func sendToRPC(req stubs.Request, function string) *stubs.Response {
 
 	res := new(stubs.Response)
