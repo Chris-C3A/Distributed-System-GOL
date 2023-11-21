@@ -1,4 +1,4 @@
-package gol
+package main
 
 import (
 	"fmt"
@@ -19,23 +19,26 @@ func (c *CloseDetectConn) Close() error {
 	return c.Conn.Close()
 }
 
+// Server struct
 type Server struct {
 	listener net.Listener
 	server   *rpc.Server
 	wg       sync.WaitGroup
 }
 
+// creates new server struct
 func NewServer() *Server {
 	return &Server{
 		server: rpc.NewServer(),
 	}
 }
 
+// register rpc and starts listening
 func (s *Server) Start(port string) error {
-	rpc.Register(new(ControllerOperations))
+	rpc.Register(new(WorkerOperations))
 
 	listener, err := net.Listen("tcp", ":"+port)
-	fmt.Println("Broker listening on", port)
+	fmt.Println("Worker node listening on", port)
 
 	if err != nil {
 		return err

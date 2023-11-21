@@ -12,7 +12,7 @@ import (
 
 // main is the function called when starting Game of Life with 'go run .'
 func main() {
-		// Record the start time
+	// Record the start time
 	startTime := time.Now()
 
 	runtime.LockOSThread()

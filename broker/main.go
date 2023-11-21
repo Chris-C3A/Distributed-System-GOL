@@ -1,25 +1,55 @@
 package main
 
 import (
-	"uk.ac.bris.cs/broker/gol"
+	"flag"
+	"fmt"
+	"math/rand"
+	"net/rpc"
+	"strings"
+	"time"
 )
 
-type ControllerOperations struct{}
+var server *Server
+var workersClient []*rpc.Client
 
 func main() {
-	// // listen to connections
-	// pAddr := flag.String("port", "8030", "Port to listen on")
+	// create new server instance
+	server = NewServer()
 
-	// fmt.Println("Worker node listening on", *pAddr)
+	pAddr := flag.String("port", "8030", "Port to listen on")
+	
+	workersAddr := flag.String("workersAddr", "127.0.0.1:8040", "List of worker node addreses and ports to connect to")
+	flag.Parse()
+	rand.Seed(time.Now().UnixNano())
 
-	// flag.Parse()
-	// rand.Seed(time.Now().UnixNano())
+	// get workers addressses seperated by commas
+	workers := strings.Split(*workersAddr, ",")
+	// workers := []string{"8040", "8050", "8060", "8070"}
 
-	// rpc.Register(&ControllerOperations{})
+	// connect to workers
+	for _, worker := range workers {
+		// connect to worker
+		// workerClient := connect(worker)
 
-	// ln, _ := net.Listen("tcp", ":"+*pAddr)
-	// defer ln.Close()
+		client, err := rpc.Dial("tcp", worker)
+		fmt.Println("Connected to: ", worker)
 
-	// rpc.Accept(ln)
-	gol.Run()
+		defer client.Close()
+
+		// handle errors
+		if err != nil {
+			fmt.Println("Error connecting to worker:", err)
+		}
+
+		// add to array of worker clients
+		workersClient = append(workersClient, client)
+	}
+
+
+	// start server
+	if err := server.Start(*pAddr); err != nil {
+		fmt.Println("Error starting server:", err)
+		return
+	}
+
 }

@@ -1,25 +1,23 @@
-package gol
+package main
 
 import (
 	"fmt"
 	"net/rpc"
 	"sync"
 
-	"uk.ac.bris.cs/broker/stubs"
-	"uk.ac.bris.cs/broker/util"
+	"uk.ac.bris.cs/gameoflife/stubs"
+	"uk.ac.bris.cs/gameoflife/util"
 )
 
 type ControllerOperations struct{}
 
 var WorkerEvolveGoL = "WorkerOperations.EvolveGoL"
 
-var ALIVE byte = 255
-var DEAD byte = 0
-
 // global variables
 var world [][]uint8
 var mutex sync.Mutex
 var turn int
+
 // var terminate = false
 // var workers []string
 // var workersClient []*rpc.Client
@@ -121,21 +119,21 @@ func (s *ControllerOperations) EvolveGoL(req stubs.Request, res *stubs.Response)
 	res.World = world
 
 	// alive cells
-	res.AliveCells = calculateAliveCells()
+	res.AliveCells = util.CalculateAliveCells(world)
 
 	fmt.Println("Sending final result to controller")
 
 	return
 }
 
-// func (s *ControllerOperations) RequestAliveCellsCount(req stubs.Request, res *stubs.Response) (err error) {
-// 	mutex.Lock()
-// 	// res.AliveCellsCount = len(calculateAliveCells())
-// 	res.CompletedTurns = turn
-// 	mutex.Unlock()
+func (s *ControllerOperations) RequestAliveCellsCount(req stubs.Request, res *stubs.Response) (err error) {
+	mutex.Lock()
+	res.AliveCellsCount = len(util.CalculateAliveCells(world))
+	res.CompletedTurns = turn
+	mutex.Unlock()
 
-// 	return
-// }
+	return
+}
 
 // func (s *ControllerOperations) RequestCurrentGameState(req stubs.Request, res *stubs.Response) (err error) {
 // 	mutex.Lock()
@@ -173,19 +171,4 @@ func sendToWorker(workerClient *rpc.Client, req stubs.Request, function string) 
 	// workerClient.Go(function, req, res,)
 
 	return res
-}
-
-func calculateAliveCells() []util.Cell {
-	var aliveCells []util.Cell
-
-	for y := 0; y < len(world); y++ {
-		for x := 0; x < len(world[y]); x++ {
-			if world[y][x] == ALIVE {
-				// add cell coordinates to aliveCells slice
-				aliveCells = append(aliveCells, util.Cell{X: x, Y: y})
-			}
-		}
-	}
-
-	return aliveCells
 }

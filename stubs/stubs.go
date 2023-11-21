@@ -1,6 +1,6 @@
 package stubs
 
-import "uk.ac.bris.cs/broker/util"
+import "uk.ac.bris.cs/gameoflife/util"
 
 type ControllerOperations struct{}
 

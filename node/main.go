@@ -1,28 +1,26 @@
 package main
 
-import "uk.ac.bris.cs/node/node"
+import (
+	"flag"
+	"fmt"
+	"math/rand"
+	"time"
+)
 
 
-var Test int = 1
+var server *Server
 
 func main() {
+	// create new server instance
+	server = NewServer()
 
-	node.Run()
+	pAddr := flag.String("port", "8040", "Port to listen on")
+	flag.Parse()
+	rand.Seed(time.Now().UnixNano())
 
-	// open rpc server on certain port...
-
-	// listen to connections
-
-	// 
-	// pAddr := flag.String("port", "8030", "Port to listen on")
-
-	// flag.Parse()
-	// rand.Seed(time.Now().UnixNano())
-
-	// rpc.Register(&ControllerOperations{})
-
-	// ln, _ := net.Listen("tcp", ":"+*pAddr)
-	// defer ln.Close()
-
-	// rpc.Accept(ln)
+	// start server
+	if err := server.Start(*pAddr); err != nil {
+		fmt.Println("Error starting server:", err)
+		return
+	}
 }

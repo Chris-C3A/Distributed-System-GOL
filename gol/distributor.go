@@ -2,8 +2,9 @@ package gol
 
 import (
 	"fmt"
+	"time"
 
-	"uk.ac.bris.cs/gameoflife/util"
+	"uk.ac.bris.cs/gameoflife/stubs"
 )
 
 type distributorChannels struct {
@@ -15,24 +16,6 @@ type distributorChannels struct {
 	ioInput    <-chan uint8
 	keyPresses <-chan rune
 }
-
-// stubs
-type Response struct {
-	World [][]byte
-	AliveCells []util.Cell
-	AliveCellsCount int
-	CompletedTurns int
-}
-
-type Request struct {
-	World [][]byte
-	Turns int
-	Workers []string
-}
-
-
-const ALIVE byte = 255
-const DEAD byte = 0
 
 // rpc method to call
 var InitializeBroker = "ControllerOperations.Broker"
@@ -83,62 +66,53 @@ func distributor(p Params, c distributorChannels) {
 
 
 	// TODO return later
-	// ticker := time.NewTicker(2 * time.Second)
-	// done := make(chan bool)
+	ticker := time.NewTicker(2 * time.Second)
+	done := make(chan bool)
 
 	// anonymous go routine to handle keypress and tickers
-	// go func() {
-	// 		for {
-	// 				select {
-	// 				case <-done:
-	// 						return
-	// 				case <-ticker.C:
-	// 					res := sendToRPC(Request{}, RequestAliveCellsCount)
-	// 					c.events <- AliveCellsCount{CompletedTurns: res.CompletedTurns, CellsCount: res.AliveCellsCount}
-	// 				case key := <-c.keyPresses:
-	// 					if key == 's' {
-	// 						// get current state of the board then outputPGM file
-	// 						response := sendToRPC(Request{}, RequestCurrentGameState)
+	go func() {
+			for {
+					select {
+					case <-done:
+							return
+					case <-ticker.C:
+						res := sendToRPC(stubs.Request{}, RequestAliveCellsCount)
+						c.events <- AliveCellsCount{CompletedTurns: res.CompletedTurns, CellsCount: res.AliveCellsCount}
+					// TODO continue
+					case key := <-c.keyPresses:
+						if key == 's' {
+							// get current state of the board then outputPGM file
+							response := sendToRPC(stubs.Request{}, RequestCurrentGameState)
 
-	// 						outputPGMFile(p, c, response.CompletedTurns, response.World)
-	// 					} else if key == 'q' {
-	// 						// terminate controller without causing error on server
+							outputPGMFile(p, c, response.CompletedTurns, response.World)
+						} else if key == 'q' {
+							// terminate controller without causing error on server
 
-	// 						// send termination to server to get the last state then close
-	// 						client.Close()
-	// 					} else if key == 'k' {
-	// 						// send rpc to cleanly kill components and return last state of the game to ouput
+							// send termination to server to get the last state then close
+							client.Close()
+						} else if key == 'k' {
+							// send rpc to cleanly kill components and return last state of the game to ouput
 
-	// 						// all componenets of the distributed system is shutdown cleanly and the system outputs a pgm image of the latest state
-	// 						sendToRPC(Request{}, Shutdown)
+							// all componenets of the distributed system is shutdown cleanly and the system outputs a pgm image of the latest state
+							sendToRPC(stubs.Request{}, Shutdown)
 
-	// 					} else if key == 'p' {
-	// 						// pause the process on the aws node and have the controller print the current turn
-	// 					}
-	// 				}
-	// 		}
-	// }()
+						} else if key == 'p' {
+							// pause the process on the aws node and have the controller print the current turn
+						}
+					}
+			}
+	}()
 
-	// fmt.Println("length:", len(world))
-	fmt.Println("sending to server")
-	// todo interact with broker
-	// broker sends pieces of the world to the different worker nodes and manages communication between them and returns finalized responses
-	// to the controller
+	fmt.Println("sending to broker")
 
-	// response := sendToRPC(Request{World: world, Turns: p.Turns}, EvolveGoL)
-
-	// initalize broker
-	// workers := []string{"8040"}
-	// sendToRPC(Request{Workers: workers}, InitializeBroker)
-	// send on done channel and stop ticker
-
-	// send evolveGOl to broker to handle
-	response := sendToRPC(Request{World: world, Turns: p.Turns}, EvolveGoL)
+	// send evolveGOL to broker to handle
+	response := sendToRPC(stubs.Request{World: world, Turns: p.Turns}, EvolveGoL)
 	fmt.Println("received response")
 
 	// TODO reutrn later
-	// ticker.Stop()
-	// done <- true
+	ticker.Stop()
+	done <- true
+
 	fmt.Println("received response")
 
 	// FinalTurnComplete Event
@@ -173,9 +147,9 @@ func distributor(p Params, c distributorChannels) {
 	close(c.events)
 }
 
-func sendToRPC(req Request, function string) *Response {
+func sendToRPC(req stubs.Request, function string) *stubs.Response {
 
-	res := new(Response)
+	res := new(stubs.Response)
 
 	// call rpc function
 	client.Call(function, req, res)
@@ -201,19 +175,3 @@ func outputPGMFile(p Params, c distributorChannels, turn int, world [][]byte) {
 	// send image output complete event
 	c.events <- ImageOutputComplete{CompletedTurns: turn, Filename: outFileName}
 }
-
-// TODO remove
-// func calculateAliveCells(p Params, world [][]byte) []util.Cell {
-// 	var aliveCells []util.Cell
-
-// 	for y := 0; y < len(world); y++ {
-// 		for x := 0; x < len(world[y]); x++ {
-// 			if world[y][x] == ALIVE {
-// 				// add cell coordinates to aliveCells slice
-// 				aliveCells = append(aliveCells, util.Cell{X: x, Y: y})
-// 			}
-// 		}
-// 	}
-
-// 	return aliveCells
-// }
