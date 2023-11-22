@@ -21,7 +21,7 @@ func CalculateNextState(world [][]byte, haloTop, haloBottom []byte) [][]byte {
 	newWorld := MakeWorld(width, height)
 
 	// process cells except for the halos cells
-	for i := 1; i < len(world)-1; i++ {
+	for i := 1; i < height+1; i++ {
 		for j := 0; j < width; j++ {
 			// get number of live neighbours
 			numOfLiveNeighbours := getNumOfLiveNeighbours(world, i, j)
@@ -65,8 +65,10 @@ func getNumOfLiveNeighbours(world [][]byte, i int, j int) int {
 	numOfLiveNeighbours := 0
 
 	// positive modulus
-	up := ((i-1)%len(world) + len(world)) % len(world)
-	down := ((i+1)%len(world) + len(world)) % len(world)
+	// up := ((i-1)%len(world) + len(world)) % len(world)
+	// down := ((i+1)%len(world) + len(world)) % len(world)
+	up := i-1
+	down := i+1
 	right := ((j+1)%len(world[i]) + len(world[i])) % len(world[i])
 	left := ((j-1)%len(world[i]) + len(world[i])) % len(world[i])
 
