@@ -20,5 +20,7 @@ type Request struct {
 	HaloBottom []byte
 	StartY int
 	EndY int
+	HaloWorkerAddr string
 	NumOfWorkers int
+	Start bool
 }

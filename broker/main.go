@@ -11,6 +11,7 @@ import (
 
 var server *Server
 var workersClient []*rpc.Client
+var workersAddr []string
 
 func main() {
 	// create new server instance
@@ -18,16 +19,16 @@ func main() {
 
 	pAddr := flag.String("port", "8030", "Port to listen on")
 	
-	workersAddr := flag.String("workersAddr", "127.0.0.1:8040", "List of worker node addreses and ports to connect to")
+	workersAddrP := flag.String("workersAddr", "127.0.0.1:8040", "List of worker node addreses and ports to connect to")
 	flag.Parse()
 	rand.Seed(time.Now().UnixNano())
 
 	// get workers addressses seperated by commas
-	workers := strings.Split(*workersAddr, ",")
+	workersAddr = strings.Split(*workersAddrP, ",")
 	// workers := []string{"8040", "8050", "8060", "8070"}
 
 	// connect to workers
-	for _, worker := range workers {
+	for _, worker := range workersAddr {
 		// connect to worker
 		// workerClient := connect(worker)
 

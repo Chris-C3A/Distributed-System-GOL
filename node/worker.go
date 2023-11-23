@@ -1,7 +1,7 @@
 package main
 
 import (
-	"fmt"
+	"net/rpc"
 	"sync"
 
 	"uk.ac.bris.cs/gameoflife/stubs"
@@ -15,80 +15,169 @@ var (
 	turn              = 0
 	turns							int
 	terminate         = false
+	initialized = false
 	mutex             sync.Mutex
+	client *rpc.Client
+	haloWorkerAddr string
+	startNode = false
+	HaloExchangeWorker = "WorkerOperations.HaloExchange"
 )
 
+var haloTopChan chan []byte
+var haloBottomChan chan []byte
+var haloTopToSend chan []byte
+var haloBottomToSend chan []byte
+var done chan bool
+
 func (s *WorkerOperations) InitWorker(req stubs.Request, res *stubs.Response) (err error) {
-	fmt.Println("Worker initialized by broker")
+	// fmt.Println("Worker initialized by broker")
 	turn = 0
 	turns = req.Turns
 	world = req.World
+	haloWorkerAddr = req.HaloWorkerAddr
 
-	mutex.Lock()
-	world = util.CalculateNextState(world, req.HaloTop, req.HaloBottom)
-	turn++
-	mutex.Unlock()
+	if !initialized {
+		// initialize channels
+		haloTopChan = make(chan []byte, 1)
+		haloBottomChan = make(chan []byte, 1)
+		haloTopToSend = make(chan []byte, 1)
+		haloBottomToSend = make(chan []byte, 1)
+		done = make(chan bool)
+	}
 
-	if turn == turns {
+	if turns == 0 {
 		res.World = world
 		return
 	}
 
-	// // Run worker as a goroutine
-	// go worker(req.Turns)
+	// if req.Start {
+	// 	startNode = true
+	// }
+
+	// run worker
+	// fmt.Println("ran worker")
+	go worker(turns)
+
+	client, _ = rpc.Dial("tcp", haloWorkerAddr)
+
+	if req.Start {
+		startNode = true
+		startHaloExchange()
+
+		// // send bottom as halo top to the next worker
+		// request := stubs.Request{HaloTop: <-haloBottomToSend, Start: true}
+
+		// response := new(stubs.Response)
+
+		// // maybe use .call
+		// client.Call(HaloExchangeWorker, request, response)
+		// // fmt.Println("start node worked properly")
+
+		// // receive bottom halo
+		// haloBottomChan <- response.HaloBottom
+	}
+
+	// wait for all turns to be processed before returning world
+	<- done
+	client.Close()
 
 	// Wait to receive first halos
-	res.HaloTop = world[0]
-	res.HaloBottom = world[len(world)-1]
+	res.World = world
 
-	fmt.Println("Initialization successful")
+	// fmt.Println("Worker done sending back final subworld")
 
 	return
 }
 
 func (s *WorkerOperations) HaloExchange(req stubs.Request, res *stubs.Response) (err error) {
-	fmt.Println("Halo exchange called")
+	// Halo Exchange part
 
-	mutex.Lock()
-	world = util.CalculateNextState(world, req.HaloTop, req.HaloBottom)
-	turn ++
-	mutex.Unlock()
+	haloTopChan <- req.HaloTop
 
-	if turn == turns {
-		res.World = world
-		return
+	// stop at startNode
+	if !startNode {
+		// call right neighbour
+
+		// fmt.Println("sending request")
+		// send bottom as halo top to the next worker
+		request := stubs.Request{HaloTop: <-haloBottomToSend, Start: false}
+
+		response := new(stubs.Response)
+
+		// maybe use .call
+		client.Call(HaloExchangeWorker, request, response)
+		// fmt.Println("call went through")
+		// fmt.Println(response)
+
+		// receive bottom halo
+		haloBottomChan <- response.HaloBottom
 	}
 
-	fmt.Println("Sending halos to broker")
 
-	// Get halos after the iteration to send back to broker
-	res.HaloTop = world[0]
-	res.HaloBottom = world[len(world)-1]
+	// haloBottom := response.HaloBottom
+
+
+	// send halos on channel?
+
+
+	// mutex.Lock()
+	// // send new halos on channel to continue turn
+	// mutex.Unlock()
+
+
+	// send back bottom halo
+	res.HaloBottom = <-haloTopToSend
+	// fmt.Println("sending back")
 
 	return
 }
 
-// // Worker function
-// func worker(turns int) {
-// 	for turn < turns && !terminate {
-// 		mutex.Lock()
+func startHaloExchange() {
+		// client, _ := rpc.Dial("tcp", haloWorkerAddr)
 
-// 		// Receive halos to include in the next iteration calculation
-// 		haloTop := <-haloTopChan
-// 		haloBottom := <-haloBottomChan
+		// send bottom as halo top to the next worker
+		// haloBottomToSend <- world[len(world)-1]
+		request := stubs.Request{HaloTop: <-haloBottomToSend}
 
-// 		world = util.CalculateNextState(world, haloTop, haloBottom)
+		response := new(stubs.Response)
 
-// 		// Send halos to other workers
-// 		go func() {
-// 			haloTopToSend <- world[0]
-// 			haloBottomToSend <- world[len(world)-1]
-// 		}()
+		// maybe use .call
+		client.Call(HaloExchangeWorker, request, response)
+		// fmt.Println("start node worked properly")
 
-// 		turn++
-// 		mutex.Unlock()
-// 	}
+		// receive bottom halo
+		haloBottomChan <- response.HaloBottom
+}
 
-// 	// Send done channel
-// 	done = true
-// }
+
+
+// Worker function
+func worker(turns int) {
+	for turn < turns && !terminate {
+		mutex.Lock()
+
+		// Send halos to other workers
+		haloTopToSend <- world[0]
+		haloBottomToSend <- world[len(world)-1]
+		// fmt.Println("sent to channels properly")
+
+
+		// Receive halos to include in the next iteration calculation
+		haloTop := <-haloTopChan
+		haloBottom := <-haloBottomChan
+
+		world = util.CalculateNextState(world, haloTop, haloBottom)
+
+		turn++
+		mutex.Unlock()
+		if startNode {
+			// start haloexchange after every turn
+			go startHaloExchange()
+		}
+		// fmt.Println("proccessed turn")
+	}
+
+	// Send done channel
+	// done = true
+	done <- true
+}

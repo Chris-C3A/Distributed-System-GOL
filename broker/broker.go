@@ -75,7 +75,7 @@ func (s *ControllerOperations) EvolveGoL(req stubs.Request, res *stubs.Response)
 
 		// partition world for worker + halos
 		var subworld [][]byte
-		var haloTop, haloBottom []byte
+		// var haloTop, haloBottom []byte
 
 		if i == len(workersClient) - 1 {
 			subworld = world[startY:startY+dy+remainderY]
@@ -84,22 +84,30 @@ func (s *ControllerOperations) EvolveGoL(req stubs.Request, res *stubs.Response)
 		}
 
 		// sepcial case for one worker
-		if i == 0 && i == len(workersClient) - 1 {
-			haloTop = world[len(world)-1]
-			haloBottom = world[0]
-		} else if i == 0 {
-			haloTop = world[len(world)-1]
-			haloBottom = world[startY+dy]
-		} else if i == len(workersClient) - 1 {
-			haloTop = world[startY-1]
-			haloBottom = world[0]
-		} else {
-			haloTop = world[startY-1]
-			haloBottom = world[startY+dy]
-		}
+		// if i == 0 && i == len(workersClient) - 1 {
+		// 	haloTop = world[len(world)-1]
+		// 	haloBottom = world[0]
+		// } else if i == 0 {
+		// 	haloTop = world[len(world)-1]
+		// 	haloBottom = world[startY+dy]
+		// } else if i == len(workersClient) - 1 {
+		// 	haloTop = world[startY-1]
+		// 	haloBottom = world[0]
+		// } else {
+		// 	haloTop = world[startY-1]
+		// 	haloBottom = world[startY+dy]
+		// }
 
 		// add subworld + halo top and bottom rows
-		request = stubs.Request{World: subworld, HaloTop: haloTop, HaloBottom: haloBottom, Turns: req.Turns}
+		// request = stubs.Request{World: subworld, HaloTop: haloTop, HaloBottom: haloBottom, Turns: req.Turns}
+		nextWorkerIndex := (i+1)%len(workersAddr)
+
+		if i == len(workersClient) - 1 {
+			// start halo exchange at the last worker
+			request = stubs.Request{World: subworld, Turns: req.Turns, HaloWorkerAddr: workersAddr[nextWorkerIndex], Start: true}
+		} else {
+			request = stubs.Request{World: subworld, Turns: req.Turns, HaloWorkerAddr: workersAddr[nextWorkerIndex]}
+		}
 
 		wg.Add(1)
 
@@ -107,6 +115,7 @@ func (s *ControllerOperations) EvolveGoL(req stubs.Request, res *stubs.Response)
 		go func(i int, workerClient *rpc.Client, req stubs.Request) {
 			defer wg.Done()
 
+			// inits workers + starts GoL and halo exchanges on the worker sides
 			workerResponses[i] = sendToWorker(workerClient, req, WorkerInit)
 
 		}(i, workerClient, request)
@@ -116,69 +125,8 @@ func (s *ControllerOperations) EvolveGoL(req stubs.Request, res *stubs.Response)
 		startY += dy
 	}
 
-	turn ++
 
-	// for all turns proccess halo exchanges
-
-	for turn < req.Turns {
-		// wait for all rpc calls to finish
-		wg.Wait()
-
-		// receive halos
-		// reset halos arrays
-		var halosTop [][]byte
-		var halosBottom [][]byte
-
-		for _, workerResponse := range workerResponses {
-			halosTop = append(halosTop, workerResponse.HaloTop)
-			halosBottom = append(halosBottom, workerResponse.HaloBottom)
-		}
-		// for i, workerCall := range workerCalls {
-		// 	fmt.Println("stuck here")
-		// 	<-workerCall.Done
-		// 	fmt.Println("passed done")
-		// 	fmt.Println(workerResponses[i])
-		// 	halosTop = append(halosTop, workerResponses[i].HaloTop)
-		// 	halosBottom = append(halosBottom, workerResponses[i].HaloBottom)
-		// 	// workerResponses[i].HaloTop
-		// 	// workerResponses[i].HaloBottom
-
-		// }
-
-		fmt.Println("sending halo exchanges")
-
-		// workerCalls = make([]*rpc.Call, len(workersClient))
-		// workerResponses = make([]*stubs.Response, len(workersClient))
-		// send halos to workers
-		for i, workerClient := range workersClient {
-			indexTop := ((i+1) % len(workersClient) + len(workersClient)) % len(workersClient)
-			indexBottom := ((i-1) % len(workersClient) + len(workersClient)) % len(workersClient)
-
-
-			request := stubs.Request{HaloBottom: halosTop[indexTop], HaloTop: halosBottom[indexBottom]}
-
-			wg.Add(1)
-
-			// asynchronously send rpc calls
-			go func(i int, workerClient *rpc.Client, req stubs.Request) {
-				defer wg.Done()
-
-				workerResponses[i] = sendToWorker(workerClient, req, WokerHaloExchange)
-
-			}(i, workerClient, request)
-
-
-			// // send halos
-			// workerCalls[i] = workerClient.Go(WokerHaloExchange, request, workerResponses[i], nil)
-		}
-
-		// if last turn then send to get world parts of each worker
-		// this is done on the server (workers)
-
-		turn ++
-	}
-
-	// TODO reconstruct final world from all workers
+	// reconstruct final world from all workers
 	var newWorld [][]byte
 	// wait for calls to complete and reconstruct the world
 	wg.Wait()
