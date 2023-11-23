@@ -68,6 +68,14 @@ func (s *WorkerOperations) HaloExchange(req stubs.Request, res *stubs.Response) 
 	return
 }
 
+
+func (s *WorkerOperations) RequestCurrentGameState(req stubs.Request, res *stubs.Response) (err error) {
+	mutex.Lock()
+	res.World = world
+	res.CompletedTurns = turn
+	mutex.Unlock()
+	return
+}
 // // Worker function
 // func worker(turns int) {
 // 	for turn < turns && !terminate {

@@ -14,10 +14,12 @@ type ControllerOperations struct{}
 var WorkerEvolveGoL = "WorkerOperations.EvolveGoL"
 var WorkerInit = "WorkerOperations.InitWorker"
 var WokerHaloExchange = "WorkerOperations.HaloExchange"
+var WorkerRequestCurrentGameState = "WorkerOperations.RequestCurrentGameState"
 
 // global variables
 var world [][]uint8
 var mutex sync.Mutex
+var wg sync.WaitGroup
 var turn int
 
 // var terminate = false
@@ -63,7 +65,6 @@ func (s *ControllerOperations) EvolveGoL(req stubs.Request, res *stubs.Response)
 	// workerCalls := make([]*rpc.Call, len(workersClient))
 	workerResponses := make([]*stubs.Response, len(workersClient))
 
-	var wg sync.WaitGroup
 
 	// break down world and send to each worker its part
 	for i, workerClient := range workersClient {
@@ -145,7 +146,7 @@ func (s *ControllerOperations) EvolveGoL(req stubs.Request, res *stubs.Response)
 
 		// }
 
-		fmt.Println("sending halo exchanges")
+		// fmt.Println("sending halo exchanges")
 
 		// workerCalls = make([]*rpc.Call, len(workersClient))
 		// workerResponses = make([]*stubs.Response, len(workersClient))
@@ -203,11 +204,22 @@ func (s *ControllerOperations) EvolveGoL(req stubs.Request, res *stubs.Response)
 	return
 }
 
-// TODO change
+// change
 func (s *ControllerOperations) RequestAliveCellsCount(req stubs.Request, res *stubs.Response) (err error) {
 	mutex.Lock()
-	res.AliveCellsCount = len(util.CalculateAliveCells(world))
-	res.CompletedTurns = turn
+	// res.AliveCellsCount = len(util.CalculateAliveCells(world))
+
+	wg.Add(1)
+	var currentWorld [][]byte
+	for _, workerClient := range workersClient {
+		response := sendToWorker(workerClient, stubs.Request{}, WorkerRequestCurrentGameState)
+		currentWorld = append(currentWorld, response.World...)
+	}
+	wg.Done()
+
+	res.AliveCellsCount = len(util.CalculateAliveCells(currentWorld))
+	// reconstruct world from all workers
+	res.CompletedTurns = turn-1
 	mutex.Unlock()
 
 	return
