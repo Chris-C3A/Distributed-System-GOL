@@ -18,6 +18,7 @@ type distributorChannels struct {
 	keyPresses <-chan rune
 }
 
+
 // rpc method to call
 var InitializeBroker = "ControllerOperations.Broker"
 var EvolveGoL = "ControllerOperations.EvolveGoL"
@@ -77,19 +78,24 @@ func distributor(p Params, c distributorChannels) {
 							response := sendToRPC(stubs.Request{}, RequestCurrentGameState)
 
 							outputPGMFile(p, c, response.CompletedTurns, response.World)
+
+							client.Close()
 						} else if key == 'q' {
 							// terminate controller without causing error on server
+							// causes error on controller
 
 							// send termination to server to get the last state then close
 							client.Close()
 						} else if key == 'k' {
 							// send rpc to cleanly kill components and return last state of the game to ouput
+							fmt.Println("killing components")
 
 							// all componenets of the distributed system is shutdown cleanly and the system outputs a pgm image of the latest state
 							sendToRPC(stubs.Request{}, Shutdown)
 
 						} else if key == 'p' {
 							// pause the process on the aws node and have the controller print the current turn
+							// send rpc to broker to toggle pause functionality
 						}
 					}
 			}

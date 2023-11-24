@@ -15,16 +15,14 @@ var WorkerEvolveGoL = "WorkerOperations.EvolveGoL"
 var WorkerInit = "WorkerOperations.InitWorker"
 var WokerHaloExchange = "WorkerOperations.HaloExchange"
 var WorkerRequestCurrentGameState = "WorkerOperations.RequestCurrentGameState"
+var WorkerShutdown = "WorkerOperatiions.Shutdown"
 
 // global variables
 var world [][]uint8
 var mutex sync.Mutex
 var wg sync.WaitGroup
 var turn int
-
-// var terminate = false
-// var workers []string
-// var workersClient []*rpc.Client
+var terminate = false
 
 
 // initalize Broker
@@ -134,22 +132,7 @@ func (s *ControllerOperations) EvolveGoL(req stubs.Request, res *stubs.Response)
 			halosTop = append(halosTop, workerResponse.HaloTop)
 			halosBottom = append(halosBottom, workerResponse.HaloBottom)
 		}
-		// for i, workerCall := range workerCalls {
-		// 	fmt.Println("stuck here")
-		// 	<-workerCall.Done
-		// 	fmt.Println("passed done")
-		// 	fmt.Println(workerResponses[i])
-		// 	halosTop = append(halosTop, workerResponses[i].HaloTop)
-		// 	halosBottom = append(halosBottom, workerResponses[i].HaloBottom)
-		// 	// workerResponses[i].HaloTop
-		// 	// workerResponses[i].HaloBottom
 
-		// }
-
-		// fmt.Println("sending halo exchanges")
-
-		// workerCalls = make([]*rpc.Call, len(workersClient))
-		// workerResponses = make([]*stubs.Response, len(workersClient))
 		// send halos to workers
 		for i, workerClient := range workersClient {
 			indexTop := ((i+1) % len(workersClient) + len(workersClient)) % len(workersClient)
@@ -168,9 +151,6 @@ func (s *ControllerOperations) EvolveGoL(req stubs.Request, res *stubs.Response)
 
 			}(i, workerClient, request)
 
-
-			// // send halos
-			// workerCalls[i] = workerClient.Go(WokerHaloExchange, request, workerResponses[i], nil)
 		}
 
 		// if last turn then send to get world parts of each worker
@@ -179,7 +159,7 @@ func (s *ControllerOperations) EvolveGoL(req stubs.Request, res *stubs.Response)
 		turn ++
 	}
 
-	// TODO reconstruct final world from all workers
+	// reconstruct final world from all workers
 	var newWorld [][]byte
 	// wait for calls to complete and reconstruct the world
 	wg.Wait()
@@ -207,7 +187,6 @@ func (s *ControllerOperations) EvolveGoL(req stubs.Request, res *stubs.Response)
 // change
 func (s *ControllerOperations) RequestAliveCellsCount(req stubs.Request, res *stubs.Response) (err error) {
 	mutex.Lock()
-	// res.AliveCellsCount = len(util.CalculateAliveCells(world))
 
 	wg.Add(1)
 	var currentWorld [][]byte
@@ -225,22 +204,39 @@ func (s *ControllerOperations) RequestAliveCellsCount(req stubs.Request, res *st
 	return
 }
 
-// func (s *ControllerOperations) RequestCurrentGameState(req stubs.Request, res *stubs.Response) (err error) {
-// 	mutex.Lock()
-// 	res.World = world
-// 	res.CompletedTurns = turn
-// 	mutex.Unlock()
+func (s *ControllerOperations) RequestCurrentGameState(req stubs.Request, res *stubs.Response) (err error) {
+	mutex.Lock()
+	wg.Add(1)
+	var currentWorld [][]byte
+	for _, workerClient := range workersClient {
+		response := sendToWorker(workerClient, stubs.Request{}, WorkerRequestCurrentGameState)
+		currentWorld = append(currentWorld, response.World...)
+	}
+	wg.Done()
 
-// 	return
-// }
+	res.World = currentWorld
+	res.CompletedTurns = turn-1
+	mutex.Unlock()
 
-// func (s *ControllerOperations) Shutdown(req stubs.Request, res *stubs.Response) (err error) {
-// 	terminate = true
+	return
+}
 
-// 	server.Stop()
+func (s *ControllerOperations) Shutdown(req stubs.Request, res *stubs.Response) (err error) {
+	terminate = true
 
-// 	return
-// }
+	server.Stop()
+
+	wg.Add(1)
+	// send to all worker to terminate
+	for _, workerClient := range workersClient {
+		// response := sendToWorker(workerClient, stubs.Request{}, WorkerShutdown)
+		sendToWorker(workerClient, stubs.Request{}, WorkerShutdown)
+	}
+
+	// could add to return final state of world before closing
+
+	return
+}
 
 
 func sendToWorker(workerClient *rpc.Client, req stubs.Request, function string) *stubs.Response {

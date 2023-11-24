@@ -76,6 +76,22 @@ func (s *WorkerOperations) RequestCurrentGameState(req stubs.Request, res *stubs
 	mutex.Unlock()
 	return
 }
+
+func (s *WorkerOperations) Shutdown(req stubs.Request, res *stubs.Response) (err error) {
+	mutex.Lock()
+	terminate = true
+	mutex.Unlock()
+
+	server.Stop()
+
+	// could add to return final state of the world
+	// res.World = world
+	// res.CompletedTurns = turn
+	
+	return
+}
+
+
 // // Worker function
 // func worker(turns int) {
 // 	for turn < turns && !terminate {
