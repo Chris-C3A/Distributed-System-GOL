@@ -24,7 +24,7 @@ func CalculateNextState(world [][]byte, haloTop, haloBottom []byte) [][]byte {
 	for i := 1; i < height+1; i++ {
 		for j := 0; j < width; j++ {
 			// get number of live neighbours
-			numOfLiveNeighbours := getNumOfLiveNeighbours(world, i, j)
+			numOfLiveNeighbours := GetNumOfLiveNeighbours(world, i, j)
 
 			// rules of the game of life
 			if world[i][j] == ALIVE {
@@ -61,14 +61,14 @@ func CalculateAliveCells(world [][]byte) []Cell {
 }
 
 // helper functions for gol logic
-func getNumOfLiveNeighbours(world [][]byte, i int, j int) int {
+func GetNumOfLiveNeighbours(world [][]byte, i int, j int) int {
 	numOfLiveNeighbours := 0
 
 	// positive modulus
-	// up := ((i-1)%len(world) + len(world)) % len(world)
-	// down := ((i+1)%len(world) + len(world)) % len(world)
-	up := i-1
-	down := i+1
+	up := ((i-1)%len(world) + len(world)) % len(world)
+	down := ((i+1)%len(world) + len(world)) % len(world)
+	// up := i-1
+	// down := i+1
 	right := ((j+1)%len(world[i]) + len(world[i])) % len(world[i])
 	left := ((j-1)%len(world[i]) + len(world[i])) % len(world[i])
 
