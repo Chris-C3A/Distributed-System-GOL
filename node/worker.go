@@ -105,10 +105,12 @@ func (s *WorkerOperations) HaloExchange(req stubs.Request, res *stubs.Response) 
 		response := new(stubs.Response)
 
 		// maybe use .call
-		client.Call(HaloExchangeWorker, request, response)
+		call := client.Go(HaloExchangeWorker, request, response, nil)
 		// fmt.Println("call went through")
 		// fmt.Println(response)
 
+		// wait for call to finish
+		<-call.Done
 		// receive bottom halo
 		haloBottomChan <- response.HaloBottom
 	}
@@ -142,8 +144,10 @@ func startHaloExchange() {
 		response := new(stubs.Response)
 
 		// maybe use .call
-		client.Call(HaloExchangeWorker, request, response)
+		call := client.Go(HaloExchangeWorker, request, response, nil)
 		// fmt.Println("start node worked properly")
+
+		<-call.Done
 
 		// receive bottom halo
 		haloBottomChan <- response.HaloBottom
