@@ -11,6 +11,7 @@ type Response struct {
 	CompletedTurns int
 	HaloTop []byte
 	HaloBottom []byte
+	IsPaused bool
 }
 
 type Request struct {

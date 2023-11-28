@@ -23,6 +23,7 @@ var mutex sync.Mutex
 var wg sync.WaitGroup
 var turn int
 var terminate = false
+var running = true
 
 
 // initalize Broker
@@ -234,6 +235,29 @@ func (s *ControllerOperations) Shutdown(req stubs.Request, res *stubs.Response) 
 	}
 
 	// could add to return final state of world before closing
+
+	return
+}
+
+func (s *ControllerOperations) TogglePause(req stubs.Request, res *stubs.Response) (err error) {
+	mutex.Lock()
+
+	// toggle running
+	running = !running
+
+	if !running {
+		// busy waiting
+		wg.Add(1)
+	} else {
+		// stop waiting
+		wg.Done()
+	}
+
+	mutex.Unlock()
+
+	// could add to return final state of world before closing
+	res.IsPaused = !running
+	res.CompletedTurns = turn-1
 
 	return
 }

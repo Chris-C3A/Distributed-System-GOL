@@ -61,8 +61,8 @@ func (s *Server) Start(port string) error {
 		},
 	}
 
-	// rpc.ServeConn(closeDetectConn)
-	s.server.ServeConn(closeDetectConn)
+	rpc.ServeConn(closeDetectConn)
+	// s.server.ServeConn(closeDetectConn)
 	
 	// for !terminate {
 
