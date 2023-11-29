@@ -15,6 +15,7 @@ var (
 	turn              = 0
 	turns							int
 	terminate         = false
+	shutdown          = false
 	threads = 4
 	mutex             sync.Mutex
 )
@@ -24,6 +25,7 @@ func (s *WorkerOperations) InitWorker(req stubs.Request, res *stubs.Response) (e
 	turn = 0
 	turns = req.Turns
 	world = req.World
+	terminate = false
 
 	mutex.Lock()
 	// run parallelWorkers on first iteration
@@ -32,7 +34,7 @@ func (s *WorkerOperations) InitWorker(req stubs.Request, res *stubs.Response) (e
 	turn++
 	mutex.Unlock()
 
-	if turn == turns {
+	if turn == turns || terminate {
 		res.World = world
 		return
 	}
@@ -54,7 +56,7 @@ func (s *WorkerOperations) HaloExchange(req stubs.Request, res *stubs.Response) 
 	turn ++
 	mutex.Unlock()
 
-	if turn == turns {
+	if turn == turns || terminate {
 		res.World = world
 		return
 	}
@@ -74,6 +76,24 @@ func (s *WorkerOperations) RequestCurrentGameState(req stubs.Request, res *stubs
 	res.World = world
 	res.CompletedTurns = turn
 	mutex.Unlock()
+	return
+}
+
+func (s *WorkerOperations) Shutdown(req stubs.Request, res *stubs.Response) (err error) {
+	fmt.Println("shutdown called")
+	mutex.Lock()
+	shutdown = true
+	terminate = true
+	mutex.Unlock()
+	
+	return
+}
+
+func (s *WorkerOperations) WorkerStop(req stubs.Request, res *stubs.Response) (err error) {
+	mutex.Lock()
+	terminate = true
+	mutex.Unlock()
+
 	return
 }
 

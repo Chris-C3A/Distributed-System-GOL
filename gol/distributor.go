@@ -24,6 +24,8 @@ var EvolveGoL = "ControllerOperations.EvolveGoL"
 var RequestAliveCellsCount = "ControllerOperations.RequestAliveCellsCount"
 var RequestCurrentGameState = "ControllerOperations.RequestCurrentGameState"
 var Shutdown = "ControllerOperations.Shutdown"
+var TogglePause = "ControllerOperations.TogglePause"
+var StopWorkers = "ControllerOperations.StopWorkers"
 
 
 // distributor divides the work between workers and interacts with other goroutines.
@@ -43,17 +45,8 @@ func distributor(p Params, c distributorChannels) {
 		}
 	}
 
-	// send cell flipped events for initial world
-	// for _, cell := range calculateAliveCells(p, world) {
-	// 	c.events <- CellFlipped{CompletedTurns: 0, Cell: cell}
-	// }
-
 	// to render blank sdl window
 	c.events <- TurnComplete{CompletedTurns: 0}
-
-	// after every turn send the state of the board to run cellFlipped
-	// only send alive cells to run cellFlipped
-	// or some kind of that logic
 
 	// initialise the 2 second ticker
 	ticker := time.NewTicker(2 * time.Second)
@@ -71,25 +64,39 @@ func distributor(p Params, c distributorChannels) {
 
 						c.events <- AliveCellsCount{CompletedTurns: res.CompletedTurns, CellsCount: res.AliveCellsCount}
 					case key := <-c.keyPresses:
-						// TODO continue
 						if key == 's' {
 							// get current state of the board then outputPGM file
 							response := sendToRPC(stubs.Request{}, RequestCurrentGameState)
-
 							outputPGMFile(p, c, response.CompletedTurns, response.World)
+
 						} else if key == 'q' {
+							fmt.Println("q key press entered")
 							// terminate controller without causing error on server
+							// causes error on controller
+
+							// send rpc that controller is closing to stop execution of workers
+							sendToRPC(stubs.Request{}, StopWorkers)
 
 							// send termination to server to get the last state then close
-							client.Close()
+							// client.Close()
 						} else if key == 'k' {
 							// send rpc to cleanly kill components and return last state of the game to ouput
+							fmt.Println("killing components")
 
 							// all componenets of the distributed system is shutdown cleanly and the system outputs a pgm image of the latest state
 							sendToRPC(stubs.Request{}, Shutdown)
 
 						} else if key == 'p' {
 							// pause the process on the aws node and have the controller print the current turn
+							// send rpc to broker to toggle pause functionality
+							response := sendToRPC(stubs.Request{}, TogglePause)
+
+							if response.IsPaused {
+								fmt.Println("Paused at ", response.CompletedTurns)
+							} else {
+								fmt.Println("Continuing")
+							}
+
 						}
 					}
 			}
@@ -102,14 +109,12 @@ func distributor(p Params, c distributorChannels) {
 	// if its more than the available workers it will use al the available ones
 	response := sendToRPC(stubs.Request{World: world, Turns: p.Turns, NumOfWorkers: p.Threads}, EvolveGoL)
 
-	fmt.Println("received response")
-
 	// stop ticker and send on done channel
-	ticker.Stop()
 	done <- true
+	ticker.Stop()
 
 	// FinalTurnComplete Event
-	c.events <- FinalTurnComplete{CompletedTurns: p.Turns, Alive: response.AliveCells}
+	c.events <- FinalTurnComplete{CompletedTurns: response.CompletedTurns, Alive: response.AliveCells}
 
 	// put each byte of final world into output channel
 	for y := 0; y < p.ImageHeight; y++ {
@@ -123,7 +128,7 @@ func distributor(p Params, c distributorChannels) {
 	// put ioOutput into command channel
 	c.ioCommand <- ioOutput
 	// output file
-	outFileName := fmt.Sprintf("%dx%dx%d", p.ImageWidth, p.ImageHeight, p.Turns)
+	outFileName := fmt.Sprintf("%dx%dx%d", p.ImageWidth, p.ImageHeight, response.CompletedTurns)
 	fmt.Println(outFileName)
 
 	// send to channel
@@ -133,12 +138,15 @@ func distributor(p Params, c distributorChannels) {
 	<-c.ioIdle
 
 	// send imageoutput complete event
-	c.events <- ImageOutputComplete{CompletedTurns: p.Turns, Filename: outFileName}
+	c.events <- ImageOutputComplete{CompletedTurns: response.CompletedTurns, Filename: outFileName}
 
-	c.events <- StateChange{p.Turns, Quitting}
+	c.events <- StateChange{response.CompletedTurns, Quitting}
 
 	// Close the channel to stop the SDL goroutine gracefully. Removing may cause deadlock.
 	close(c.events)
+
+	// close done channel
+	close(done)
 }
 
 // helper functions

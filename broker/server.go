@@ -45,25 +45,37 @@ func (s *Server) Start(port string) error {
 
 	s.listener = listener
 
-	for {
+	for !shutdown {
 		conn, err := s.listener.Accept()
 		if err != nil {
 			fmt.Println("Error accepting connection:", err)
-			continue
+			// continue
 		}
 
-		// closeDetectConn := &CloseDetectConn{
-		// 	Conn: conn,
-		// 	onClose: func() {
-		// 		fmt.Println("Client disconnected")
-		// 		// Additional cleanup or handling here
-		// 		// TODO
-		// 	},
-		// }
+		closeDetectConn := &CloseDetectConn{
+			Conn: conn,
+			onClose: func() {
+				fmt.Println("Client disconnected")
+				// Additional cleanup or handling here
+				// TODO
+			},
+		}
 
-		go rpc.ServeConn(conn)
-		// go s.server.ServeConn(closeDetectConn)
+		rpc.ServeConn(closeDetectConn)
 	}
+	// s.server.ServeConn(closeDetectConn)
+	
+	// for !terminate {
+
+	// }
+
+	// for !terminate {
+	// }
+	// go rpc.ServeConn(conn)
+		// go s.server.ServeConn(closeDetectConn)
+	// }
+	fmt.Println("shutdown server")
+	return nil
 }
 
 func (s *Server) Stop() {
