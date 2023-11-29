@@ -26,9 +26,7 @@ func (s *WorkerOperations) InitWorker(req stubs.Request, res *stubs.Response) (e
 	world = req.World
 
 	mutex.Lock()
-	// world = util.CalculateNextState(world, req.HaloTop, req.HaloBottom)
-	// world = runParallelWorkers(8)
-
+	// run parallelWorkers on first iteration
 	world = runParallelWorkers(threads, req.HaloTop, req.HaloBottom)
 
 	turn++
@@ -38,9 +36,6 @@ func (s *WorkerOperations) InitWorker(req stubs.Request, res *stubs.Response) (e
 		res.World = world
 		return
 	}
-
-	// // Run worker as a goroutine
-	// go worker(req.Turns)
 
 	// Wait to receive first halos
 	res.HaloTop = world[0]
@@ -55,7 +50,6 @@ func (s *WorkerOperations) HaloExchange(req stubs.Request, res *stubs.Response) 
 	fmt.Println("Halo exchange called")
 
 	mutex.Lock()
-	// world = util.CalculateNextState(world, req.HaloTop, req.HaloBottom)
 	world = runParallelWorkers(threads, req.HaloTop, req.HaloBottom)
 	turn ++
 	mutex.Unlock()
@@ -82,30 +76,6 @@ func (s *WorkerOperations) RequestCurrentGameState(req stubs.Request, res *stubs
 	mutex.Unlock()
 	return
 }
-// // Worker function
-// func worker(turns int) {
-// 	for turn < turns && !terminate {
-// 		mutex.Lock()
-
-// 		// Receive halos to include in the next iteration calculation
-// 		haloTop := <-haloTopChan
-// 		haloBottom := <-haloBottomChan
-
-// 		world = util.CalculateNextState(world, haloTop, haloBottom)
-
-// 		// Send halos to other workers
-// 		go func() {
-// 			haloTopToSend <- world[0]
-// 			haloBottomToSend <- world[len(world)-1]
-// 		}()
-
-// 		turn++
-// 		mutex.Unlock()
-// 	}
-
-// 	// Send done channel
-// 	done = true
-// }
 
 func runParallelWorkers(threads int, haloTop, haloBottom []byte) [][]byte {
 	// create world + halos to use
@@ -150,12 +120,7 @@ func runParallelWorkers(threads int, haloTop, haloBottom []byte) [][]byte {
 		newWorld = append(newWorld, receivedData...)
 	}
 
-	// // copy newWorld into world to process next state
-	// mutex.Lock()
-	// copy(world, newWorld)
-	// mutex.Unlock()
 	return newWorld
-
 }
 
 // worker go routine function
