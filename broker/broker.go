@@ -16,6 +16,7 @@ var WorkerInit = "WorkerOperations.InitWorker"
 var WokerHaloExchange = "WorkerOperations.HaloExchange"
 var WorkerRequestCurrentGameState = "WorkerOperations.RequestCurrentGameState"
 var WorkerShutdown = "WorkerOperatiions.Shutdown"
+var WorkerStop = "WorkerOperatiions.WorkerStop"
 
 // global variables
 var world [][]uint8
@@ -23,6 +24,7 @@ var mutex sync.Mutex
 var wg sync.WaitGroup
 var turn int
 var terminate = false
+var shutdown = false
 var running = true
 
 
@@ -47,6 +49,9 @@ func (s *ControllerOperations) EvolveGoL(req stubs.Request, res *stubs.Response)
 	// assign request world globally
 	turn = 0
 	world = req.World
+	terminate = false
+	shutdown = false
+	running = true
 
 	//! not used atm
 	// numOfWorkers := req.NumOfWorkers
@@ -120,7 +125,7 @@ func (s *ControllerOperations) EvolveGoL(req stubs.Request, res *stubs.Response)
 
 	// for all turns proccess halo exchanges
 
-	for turn < req.Turns {
+	for turn < req.Turns && !terminate {
 		// wait for all rpc calls to finish
 		wg.Wait()
 
@@ -159,6 +164,12 @@ func (s *ControllerOperations) EvolveGoL(req stubs.Request, res *stubs.Response)
 
 		turn ++
 	}
+	
+	if terminate {
+		res.World = world
+		res.CompletedTurns = turn-1
+		return
+	}
 
 	// reconstruct final world from all workers
 	var newWorld [][]byte
@@ -179,6 +190,8 @@ func (s *ControllerOperations) EvolveGoL(req stubs.Request, res *stubs.Response)
 
 	// alive cells
 	res.AliveCells = util.CalculateAliveCells(world)
+
+	res.CompletedTurns = turn
 
 	fmt.Println("Sending final result to controller")
 
@@ -223,16 +236,21 @@ func (s *ControllerOperations) RequestCurrentGameState(req stubs.Request, res *s
 }
 
 func (s *ControllerOperations) Shutdown(req stubs.Request, res *stubs.Response) (err error) {
-	terminate = true
 
-	server.Stop()
+	// server.Stop()
 
 	wg.Add(1)
 	// send to all worker to terminate
 	for _, workerClient := range workersClient {
 		// response := sendToWorker(workerClient, stubs.Request{}, WorkerShutdown)
+		fmt.Println("sending shutdown to workers")
 		sendToWorker(workerClient, stubs.Request{}, WorkerShutdown)
 	}
+
+	wg.Done()
+
+	shutdown = true
+	terminate = true
 
 	// could add to return final state of world before closing
 
@@ -258,6 +276,31 @@ func (s *ControllerOperations) TogglePause(req stubs.Request, res *stubs.Respons
 	// could add to return final state of world before closing
 	res.IsPaused = !running
 	res.CompletedTurns = turn-1
+
+	return
+}
+
+func (s *ControllerOperations) StopWorkers(req stubs.Request, res *stubs.Response) (err error) {
+	mutex.Lock()
+
+	// terminate broker which stops sending to workers
+	terminate = true
+
+	mutex.Unlock()
+
+	// wg.Add(1)
+	// // send to all worker to terminate
+	// for _, workerClient := range workersClient {
+	// 	// response := sendToWorker(workerClient, stubs.Request{}, WorkerShutdown)
+	// 	sendToWorker(workerClient, stubs.Request{}, WorkerStop)
+	// }
+
+	// wg.Done()
+
+
+	// could add to return final state of world before closing
+	// res.CompletedTurns = turn-1
+	// res.World = world
 
 	return
 }

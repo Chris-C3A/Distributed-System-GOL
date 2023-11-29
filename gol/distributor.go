@@ -26,6 +26,7 @@ var RequestAliveCellsCount = "ControllerOperations.RequestAliveCellsCount"
 var RequestCurrentGameState = "ControllerOperations.RequestCurrentGameState"
 var Shutdown = "ControllerOperations.Shutdown"
 var TogglePause = "ControllerOperations.TogglePause"
+var StopWorkers = "ControllerOperations.StopWorkers"
 
 
 // distributor divides the work between workers and interacts with other goroutines.
@@ -80,14 +81,16 @@ func distributor(p Params, c distributorChannels) {
 							outputPGMFile(p, c, response.CompletedTurns, response.World)
 
 						} else if key == 'q' {
+							fmt.Println("q key press entered")
 							// terminate controller without causing error on server
 							// causes error on controller
 
 							// TODO
-							// send rpc that controller is closing
+							// send rpc that controller is closing to stop execution of workers
+							sendToRPC(stubs.Request{}, StopWorkers)
 
 							// send termination to server to get the last state then close
-							client.Close()
+							// client.Close()
 						} else if key == 'k' {
 							// send rpc to cleanly kill components and return last state of the game to ouput
 							// TODO
@@ -140,7 +143,7 @@ func distributor(p Params, c distributorChannels) {
 	// put ioOutput into command channel
 	c.ioCommand <- ioOutput
 	// output file
-	outFileName := fmt.Sprintf("%dx%dx%d", p.ImageWidth, p.ImageHeight, p.Turns)
+	outFileName := fmt.Sprintf("%dx%dx%d", p.ImageWidth, p.ImageHeight, response.CompletedTurns)
 	fmt.Println(outFileName)
 
 	// send to channel
@@ -150,9 +153,9 @@ func distributor(p Params, c distributorChannels) {
 	<-c.ioIdle
 
 	// send imageoutput complete event
-	c.events <- ImageOutputComplete{CompletedTurns: p.Turns, Filename: outFileName}
+	c.events <- ImageOutputComplete{CompletedTurns: response.CompletedTurns, Filename: outFileName}
 
-	c.events <- StateChange{p.Turns, Quitting}
+	c.events <- StateChange{response.CompletedTurns, Quitting}
 
 	// Close the channel to stop the SDL goroutine gracefully. Removing may cause deadlock.
 	close(c.events)

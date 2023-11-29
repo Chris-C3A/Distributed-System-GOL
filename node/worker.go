@@ -15,6 +15,7 @@ var (
 	turn              = 0
 	turns							int
 	terminate         = false
+	shutdown = false
 	mutex             sync.Mutex
 )
 
@@ -23,13 +24,14 @@ func (s *WorkerOperations) InitWorker(req stubs.Request, res *stubs.Response) (e
 	turn = 0
 	turns = req.Turns
 	world = req.World
+	terminate = false
 
 	mutex.Lock()
 	world = util.CalculateNextState(world, req.HaloTop, req.HaloBottom)
 	turn++
 	mutex.Unlock()
 
-	if turn == turns {
+	if turn == turns || terminate {
 		res.World = world
 		return
 	}
@@ -54,7 +56,7 @@ func (s *WorkerOperations) HaloExchange(req stubs.Request, res *stubs.Response) 
 	turn ++
 	mutex.Unlock()
 
-	if turn == turns {
+	if turn == turns || terminate {
 		res.World = world
 		return
 	}
@@ -78,16 +80,26 @@ func (s *WorkerOperations) RequestCurrentGameState(req stubs.Request, res *stubs
 }
 
 func (s *WorkerOperations) Shutdown(req stubs.Request, res *stubs.Response) (err error) {
+	fmt.Println("shutdown called")
 	mutex.Lock()
+	shutdown = true
 	terminate = true
 	mutex.Unlock()
 
-	server.Stop()
+	// server.Stop()
 
 	// could add to return final state of the world
 	// res.World = world
 	// res.CompletedTurns = turn
 	
+	return
+}
+
+func (s *WorkerOperations) WorkerStop(req stubs.Request, res *stubs.Response) (err error) {
+	mutex.Lock()
+	terminate = true
+	mutex.Unlock()
+
 	return
 }
 
