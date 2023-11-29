@@ -83,23 +83,7 @@ func (s *ControllerOperations) EvolveGoL(req stubs.Request, res *stubs.Response)
 			subworld = world[startY:startY+dy]
 		}
 
-		// sepcial case for one worker
-		// if i == 0 && i == len(workersClient) - 1 {
-		// 	haloTop = world[len(world)-1]
-		// 	haloBottom = world[0]
-		// } else if i == 0 {
-		// 	haloTop = world[len(world)-1]
-		// 	haloBottom = world[startY+dy]
-		// } else if i == len(workersClient) - 1 {
-		// 	haloTop = world[startY-1]
-		// 	haloBottom = world[0]
-		// } else {
-		// 	haloTop = world[startY-1]
-		// 	haloBottom = world[startY+dy]
-		// }
-
 		// add subworld + halo top and bottom rows
-		// request = stubs.Request{World: subworld, HaloTop: haloTop, HaloBottom: haloBottom, Turns: req.Turns}
 		nextWorkerIndex := (i+1)%len(workersAddr)
 
 		if i == len(workersClient) - 1 {
