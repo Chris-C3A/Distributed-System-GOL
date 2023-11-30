@@ -9,11 +9,16 @@ type Response struct {
 	AliveCells []util.Cell
 	AliveCellsCount int
 	CompletedTurns int
+	HaloTop []byte
+	HaloBottom []byte
+	IsPaused bool
 }
 
 type Request struct {
 	World [][]byte
 	Turns int
+	HaloTop []byte
+	HaloBottom []byte
 	StartY int
 	EndY int
 	NumOfWorkers int

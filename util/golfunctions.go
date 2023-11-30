@@ -10,27 +10,32 @@ func MakeWorld(width, height int) [][]byte {
 	return world
 }
 
-func CalculateNextState(world [][]byte, startY, endY int) [][]byte {
-	height := endY - startY
+func CalculateNextState(world [][]byte, haloTop, haloBottom []byte) [][]byte {
+	height := len(world)
 	width := len(world[0])
+
+	// add halos to world
+	world = append([][]byte{haloTop}, world...)
+	world = append(world, haloBottom)
 
 	newWorld := MakeWorld(width, height)
 
-	for i := startY; i < endY; i++ {
+	// process cells except for the halos cells
+	for i := 1; i < height+1; i++ {
 		for j := 0; j < width; j++ {
 			// get number of live neighbours
-			numOfLiveNeighbours := getNumOfLiveNeighbours(world, i, j)
+			numOfLiveNeighbours := GetNumOfLiveNeighbours(world, i, j)
 
 			// rules of the game of life
 			if world[i][j] == ALIVE {
 				if numOfLiveNeighbours < 2 || numOfLiveNeighbours > 3 {
-					newWorld[i-startY][j] = DEAD
+					newWorld[i-1][j] = DEAD
 				} else {
-					newWorld[i-startY][j] = ALIVE
+					newWorld[i-1][j] = ALIVE
 				}
 			} else {
 				if numOfLiveNeighbours == 3 {
-					newWorld[i-startY][j] = ALIVE
+					newWorld[i-1][j] = ALIVE
 				}
 			}
 		}
@@ -56,12 +61,14 @@ func CalculateAliveCells(world [][]byte) []Cell {
 }
 
 // helper functions for gol logic
-func getNumOfLiveNeighbours(world [][]byte, i int, j int) int {
+func GetNumOfLiveNeighbours(world [][]byte, i int, j int) int {
 	numOfLiveNeighbours := 0
 
 	// positive modulus
 	up := ((i-1)%len(world) + len(world)) % len(world)
 	down := ((i+1)%len(world) + len(world)) % len(world)
+	// up := i-1
+	// down := i+1
 	right := ((j+1)%len(world[i]) + len(world[i])) % len(world[i])
 	left := ((j-1)%len(world[i]) + len(world[i])) % len(world[i])
 
